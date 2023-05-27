@@ -27,16 +27,30 @@ typedef struct s_dijkstra
 {
     int index;
     int steps;
+    int indexes[1000];
     struct s_dijkstra *next;
 }       t_dijkstra;
 
-t_dijkstra  *make_new_dijkstra(int steps, int index)
+void    make_indexes(int indexes_new[1000], int indexes_old[1000], int index)
+{
+    int i = 0;
+    while (indexes_old[i] != -1)
+    {
+        indexes_new[i] = indexes_old[i];
+        i++;
+    }
+    indexes_new[i] = index;
+    indexes_new[i + 1] = -1;
+}
+
+t_dijkstra  *make_new_dijkstra(int steps, int index, int indexes[1000])
 {
     t_dijkstra  *new;
 
     new = calloc(sizeof(t_dijkstra), 1);
     new->steps = steps;
     new->index = index;
+    make_indexes(new->indexes, indexes, index);
     new->next = NULL;
     return (new);
 }
@@ -70,37 +84,37 @@ int check_neigh(int index, t_dijkstra *head)
     return (1);
 }
 
-void    make_new_locations(t_cell cell_array[], int index, int steps, t_dijkstra *head)
+void    make_new_locations(t_cell cell_array[], int index, int steps, t_dijkstra *head, t_dijkstra *temp)
 {
     if ((cell_array[index]).neigh_0 != -1)
     {
         if (check_neigh((cell_array[index]).neigh_0, head))
-            put_back(&head, make_new_dijkstra(steps, (cell_array[index]).neigh_0));
+            put_back(&head, make_new_dijkstra(steps, (cell_array[index]).neigh_0, temp->indexes));
     }
     if ((cell_array[index]).neigh_1 != -1)
     {
         if (check_neigh((cell_array[index]).neigh_1, head))
-            put_back(&head, make_new_dijkstra(steps, (cell_array[index]).neigh_1));
+            put_back(&head, make_new_dijkstra(steps, (cell_array[index]).neigh_1, temp->indexes));
     }
     if ((cell_array[index]).neigh_2 != -1)
     {
         if (check_neigh((cell_array[index]).neigh_2, head))
-            put_back(&head, make_new_dijkstra(steps, (cell_array[index]).neigh_2));
+            put_back(&head, make_new_dijkstra(steps, (cell_array[index]).neigh_2, temp->indexes));
     }
     if ((cell_array[index]).neigh_3 != -1)
     {
         if (check_neigh((cell_array[index]).neigh_3, head))
-            put_back(&head, make_new_dijkstra(steps, (cell_array[index]).neigh_3));
+            put_back(&head, make_new_dijkstra(steps, (cell_array[index]).neigh_3, temp->indexes));
     }
     if ((cell_array[index]).neigh_4 != -1)
     {
         if (check_neigh((cell_array[index]).neigh_4, head))
-            put_back(&head, make_new_dijkstra(steps, (cell_array[index]).neigh_4));
+            put_back(&head, make_new_dijkstra(steps, (cell_array[index]).neigh_4, temp->indexes));
     }
     if ((cell_array[index]).neigh_5 != -1)
     {
         if (check_neigh((cell_array[index]).neigh_5, head))
-            put_back(&head, make_new_dijkstra(steps, (cell_array[index]).neigh_5));
+            put_back(&head, make_new_dijkstra(steps, (cell_array[index]).neigh_5, temp->indexes));
     }
 }
 
@@ -116,10 +130,24 @@ void    free_list(t_dijkstra *head)
     }
 }
 
-int find_path_between_cells(t_cell cell_array[], int index1, int index2)
+void    copy_indexes(int new_indexes[1000], int old_indexes[1000])
+{
+    int i = 0;
+    while (old_indexes[i] != -1)
+    {
+        new_indexes[i] = old_indexes[i];
+        i++;
+    }
+    new_indexes[i] = -1;
+}
+
+t_dijkstra *find_path_between_cells(t_cell cell_array[], int index1, int index2)
 {
     int steps = 0;
-    t_dijkstra *end_loc = make_new_dijkstra(0, index2);
+    int indexes[1000];
+    t_dijkstra *best;
+    indexes[0] = -1;
+    t_dijkstra *end_loc = make_new_dijkstra(0, index2, indexes);
     t_dijkstra *temp;
     int         index_temp;
 
@@ -131,17 +159,24 @@ int find_path_between_cells(t_cell cell_array[], int index1, int index2)
         {
             index_temp = temp->index;
             if (temp->index == index1)
-                return (free_list(end_loc), steps);
-            make_new_locations(cell_array, index_temp, steps + 1, end_loc);
+            {
+                best = calloc(sizeof(t_dijkstra), 1);
+                best->index = temp->index;
+                best->steps = temp->steps;
+                copy_indexes(best->indexes, temp->indexes);
+                return (free_list(end_loc), best);
+            }
+            make_new_locations(cell_array, index_temp, steps + 1, end_loc, temp);
             temp = temp->next;
         }
         steps++;
     }
-    return (free_list(end_loc), steps);
+    return (free_list(end_loc), best);
 }
 
 int find_best_resource(t_cell cell_array[], int type, int number_of_cells, int base)
 {
+    t_dijkstra  *best;
     int steps;
     int best_index;
     int highest_steps = 100000;
@@ -150,8 +185,8 @@ int find_best_resource(t_cell cell_array[], int type, int number_of_cells, int b
     {
         if ((cell_array[i]).type == type && (cell_array[i]).resources != 0)
         {
-            steps = find_path_between_cells(cell_array, base, i);
-            fprintf(stderr, "steps %d for index %d\n", steps, i);
+            best = find_path_between_cells(cell_array, base, i);
+            steps = best->steps;
             if (steps < highest_steps)
             {
                 highest_steps = steps;
@@ -159,7 +194,6 @@ int find_best_resource(t_cell cell_array[], int type, int number_of_cells, int b
             }
         }
     }
-    fprintf(stderr, "highest steps %d, index %d\n", highest_steps, best_index);
     return (best_index);
 }
 
